@@ -13,6 +13,14 @@
     <?php if ( isset( $results['errorMessage'] ) ) { ?>
             <div class="errorMessage"><?php echo $results['errorMessage'] ?></div>
     <?php } ?>
+    
+    <?php if ( isset( $results['errors'] ) && is_array( $results['errors'] ) && !empty( $results['errors'] ) ) { ?>
+            <div class="errorMessage">
+                <?php foreach ( $results['errors'] as $error ) { ?>
+                    <div><?php echo htmlspecialchars( $error ) ?></div>
+                <?php } ?>
+            </div>
+    <?php } ?>
 
             <ul>
 
@@ -33,11 +41,33 @@
 
               <li>
                 <label for="categoryId">Article Category</label>
-                <select name="categoryId">
+                <select name="categoryId" id="categoryId">
                   <option value="0"<?php echo !$results['article']->categoryId ? " selected" : ""?>>(none)</option>
                 <?php foreach ( $results['categories'] as $category ) { ?>
                   <option value="<?php echo $category->id?>"<?php echo ( $category->id == $results['article']->categoryId ) ? " selected" : ""?>><?php echo htmlspecialchars( $category->name )?></option>
                 <?php } ?>
+                </select>
+              </li>
+
+              <li>
+                <label for="subcategoryId">Article Subcategory</label>
+                <select name="subcategoryId" id="subcategoryId">
+                  <option value="0"<?php echo !$results['article']->subcategoryId ? " selected" : ""?>>(none)</option>
+                <?php 
+                // Группируем подкатегории по категориям
+                if (isset($results['subcategoriesByCategory'])) {
+                    foreach ( $results['subcategoriesByCategory'] as $catId => $subcategories ) {
+                        if (isset($results['categories'][$catId])) {
+                            echo '<optgroup label="' . htmlspecialchars($results['categories'][$catId]->name) . '">';
+                            foreach ( $subcategories as $subcategory ) {
+                                $selected = ( $subcategory->id == $results['article']->subcategoryId ) ? " selected" : "";
+                                echo '<option value="' . $subcategory->id . '"' . $selected . '>' . htmlspecialchars( $subcategory->name ) . '</option>';
+                            }
+                            echo '</optgroup>';
+                        }
+                    }
+                }
+                ?>
                 </select>
               </li>
 

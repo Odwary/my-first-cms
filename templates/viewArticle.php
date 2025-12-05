@@ -10,6 +10,12 @@
         <a href="./?action=archive&amp;categoryId=<?php echo $results['category']->id?>">
             <?php echo htmlspecialchars($results['category']->name) ?>
         </a>
+        <?php if (isset($results['subcategory']) && $results['subcategory']) { ?>
+            / 
+            <a href="./?action=archiveBySubcategory&amp;subcategoryId=<?php echo $results['subcategory']->id?>">
+                <?php echo htmlspecialchars($results['subcategory']->name) ?>
+            </a>
+        <?php } ?>
     <?php } ?>
         
     </p>

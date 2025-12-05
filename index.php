@@ -20,6 +20,9 @@ function initApplication()
         case 'archive':
           archive();
           break;
+        case 'archiveBySubcategory':
+          archiveBySubcategory();
+          break;
         case 'viewArticle':
           viewArticle();
           break;
@@ -49,7 +52,55 @@ function archive()
         $results['categories'][$category->id] = $category;
     }
     
+    // Загружаем подкатегории для отображения ссылок
+    $subcategoriesData = Subcategory::getList();
+    $results['subcategories'] = array();
+    foreach ($subcategoriesData['results'] as $subcategory) {
+        $results['subcategories'][$subcategory->id] = $subcategory;
+    }
+    
     $results['pageHeading'] = $results['category'] ?  $results['category']->name : "Article Archive";
+    $results['pageTitle'] = $results['pageHeading'] . " | Widget News";
+    
+    require( TEMPLATE_PATH . "/archive.php" );
+}
+
+function archiveBySubcategory() 
+{
+    $results = [];
+    
+    $subcategoryId = ( isset( $_GET['subcategoryId'] ) && $_GET['subcategoryId'] ) ? (int)$_GET['subcategoryId'] : null;
+    
+    $results['subcategory'] = Subcategory::getById( $subcategoryId );
+    
+    if (!$results['subcategory']) {
+        throw new Exception("Подкатегория не найдена");
+    }
+    
+    // Показываем только активные статьи на публичной странице
+    $data = Article::getList( 100000, null, "publicationDate DESC", true, $subcategoryId );
+    
+    $results['articles'] = $data['results'];
+    $results['totalRows'] = $data['totalRows'];
+    
+    // Загружаем категорию подкатегории
+    $results['category'] = Category::getById($results['subcategory']->categoryId);
+    
+    $data = Category::getList();
+    $results['categories'] = array();
+    
+    foreach ( $data['results'] as $category ) {
+        $results['categories'][$category->id] = $category;
+    }
+    
+    // Загружаем подкатегории для отображения ссылок
+    $subcategoriesData = Subcategory::getList();
+    $results['subcategories'] = array();
+    foreach ($subcategoriesData['results'] as $subcategory) {
+        $results['subcategories'][$subcategory->id] = $subcategory;
+    }
+    
+    $results['pageHeading'] = $results['subcategory']->name;
     $results['pageTitle'] = $results['pageHeading'] . " | Widget News";
     
     require( TEMPLATE_PATH . "/archive.php" );
@@ -82,6 +133,12 @@ function viewArticle()
     }
     
     $results['category'] = Category::getById($results['article']->categoryId);
+    
+    // Загружаем подкатегорию, если она есть
+    if (isset($results['article']->subcategoryId) && $results['article']->subcategoryId) {
+        $results['subcategory'] = Subcategory::getById($results['article']->subcategoryId);
+    }
+    
     $results['pageTitle'] = $results['article']->title . " | Простая CMS";
     
     require(TEMPLATE_PATH . "/viewArticle.php");
@@ -102,7 +159,14 @@ function homepage()
     $results['categories'] = array();
     foreach ( $data['results'] as $category ) { 
         $results['categories'][$category->id] = $category;
-    } 
+    }
+    
+    // Загружаем подкатегории для отображения ссылок
+    $subcategoriesData = Subcategory::getList();
+    $results['subcategories'] = array();
+    foreach ($subcategoriesData['results'] as $subcategory) {
+        $results['subcategories'][$subcategory->id] = $subcategory;
+    }
     
     $results['pageTitle'] = "Простая CMS на PHP";
     

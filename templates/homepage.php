@@ -18,6 +18,12 @@
                         <a href=".?action=archive&amp;categoryId=<?php echo $article->categoryId?>">
                             <?php echo htmlspecialchars($results['categories'][$article->categoryId]->name )?>
                         </a>
+                        <?php if (isset($article->subcategoryId) && isset($results['subcategories'][$article->subcategoryId])) { ?>
+                            / 
+                            <a href=".?action=archiveBySubcategory&amp;subcategoryId=<?php echo $article->subcategoryId?>">
+                                <?php echo htmlspecialchars($results['subcategories'][$article->subcategoryId]->name )?>
+                            </a>
+                        <?php } ?>
                     </span>
                 <?php } 
                 else { ?>
