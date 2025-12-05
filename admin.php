@@ -38,6 +38,18 @@ switch ($action) {
     case 'deleteCategory':
         deleteCategory();
         break;
+    case 'listUsers':
+        listUsers();
+        break;
+    case 'newUser':
+        newUser();
+        break;
+    case 'editUser':
+        editUser();
+        break;
+    case 'deleteUser':
+        deleteUser();
+        break;
     default:
         listArticles();
 }
@@ -53,20 +65,45 @@ function login() {
     if (isset($_POST['login'])) {
 
         // Пользователь получает форму входа: попытка авторизировать пользователя
-
-        if ($_POST['username'] == ADMIN_USERNAME 
-                && $_POST['password'] == ADMIN_PASSWORD) {
-
-          // Вход прошел успешно: создаем сессию и перенаправляем на страницу администратора
-          $_SESSION['username'] = ADMIN_USERNAME;
-          header( "Location: admin.php");
-
-        } else {
-
-          // Ошибка входа: выводим сообщение об ошибке для пользователя
-          $results['errorMessage'] = "Неправильный пароль, попробуйте ещё раз.";
-          require( TEMPLATE_PATH . "/admin/loginForm.php" );
+        $username = $_POST['username'];
+        $password = $_POST['password'];
+        
+        // Если логин "admin", используем старую проверку через константы
+        if ($username == ADMIN_USERNAME && $password == ADMIN_PASSWORD) {
+            // Вход прошел успешно: создаем сессию и перенаправляем на страницу администратора
+            $_SESSION['username'] = ADMIN_USERNAME;
+            header( "Location: admin.php");
+            return;
         }
+        
+        // Если логин не "admin", проверяем через БД
+        if ($username != ADMIN_USERNAME) {
+            $user = User::authenticate($username, $password);
+            
+            if ($user) {
+                // Проверяем, активен ли пользователь
+                if ($user->isActive == 1) {
+                    // Вход прошел успешно: создаем сессию и перенаправляем на страницу администратора
+                    $_SESSION['username'] = $user->login;
+                    header( "Location: admin.php");
+                    return;
+                } else {
+                    // Пользователь неактивен
+                    $results['errorMessage'] = "Ваш аккаунт деактивирован. Обратитесь к администратору.";
+                    require( TEMPLATE_PATH . "/admin/loginForm.php" );
+                    return;
+                }
+            } else {
+                // Неверный логин или пароль
+                $results['errorMessage'] = "Неправильный логин или пароль, попробуйте ещё раз.";
+                require( TEMPLATE_PATH . "/admin/loginForm.php" );
+                return;
+            }
+        }
+
+        // Если дошли сюда, значит логин "admin", но пароль неверный
+        $results['errorMessage'] = "Неправильный пароль, попробуйте ещё раз.";
+        require( TEMPLATE_PATH . "/admin/loginForm.php" );
 
     } else {
 
@@ -189,6 +226,8 @@ function listArticles() {
     if (isset($_GET['error'])) { // вывод сообщения об ошибке (если есть)
         if ($_GET['error'] == "articleNotFound") 
             $results['errorMessage'] = "Error: Article not found.";
+        if ($_GET['error'] == "accessDenied") 
+            $results['errorMessage'] = "Access denied. Only administrator can manage users.";
     }
 
     if (isset($_GET['status'])) { // вывод сообщения (если есть)
@@ -301,6 +340,154 @@ function deleteCategory() {
 
     $category->delete();
     header( "Location: admin.php?action=listCategories&status=categoryDeleted" );
+}
+
+function listUsers() {
+    // Проверяем, что только admin может управлять пользователями
+    if ($_SESSION['username'] != ADMIN_USERNAME) {
+        header( "Location: admin.php?error=accessDenied" );
+        return;
+    }
+    
+    $results = array();
+    
+    $data = User::getList();
+    $results['users'] = $data['results'];
+    $results['totalRows'] = $data['totalRows'];
+    
+    $results['pageTitle'] = "All Users";
+
+    if (isset($_GET['error'])) {
+        if ($_GET['error'] == "userNotFound") 
+            $results['errorMessage'] = "Error: User not found.";
+        if ($_GET['error'] == "userExists") 
+            $results['errorMessage'] = "Error: User with this login already exists.";
+    }
+
+    if (isset($_GET['status'])) {
+        if ($_GET['status'] == "changesSaved") {
+            $results['statusMessage'] = "Your changes have been saved.";
+        }
+        if ($_GET['status'] == "userDeleted")  {
+            $results['statusMessage'] = "User deleted.";
+        }
+    }
+
+    require(TEMPLATE_PATH . "/admin/listUsers.php" );
+}
+
+function newUser() {
+    // Проверяем, что только admin может управлять пользователями
+    if ($_SESSION['username'] != ADMIN_USERNAME) {
+        header( "Location: admin.php?error=accessDenied" );
+        return;
+    }
+    
+    $results = array();
+    $results['pageTitle'] = "New User";
+    $results['formAction'] = "newUser";
+
+    if ( isset( $_POST['saveChanges'] ) ) {
+        // Пользователь получает форму редактирования: сохраняем нового пользователя
+        $user = new User();
+        $user->storeFormValues( $_POST );
+        
+        // Проверяем, что пароль указан для нового пользователя
+        if (empty($_POST['password'])) {
+            $results['errorMessage'] = "Password is required for new user.";
+            $results['user'] = $user;
+            require( TEMPLATE_PATH . "/admin/editUser.php" );
+            return;
+        }
+        
+        // Проверяем, не существует ли уже пользователь с таким логином
+        $existingUser = User::getByLogin($user->login);
+        if ($existingUser) {
+            $results['errorMessage'] = "User with login '{$user->login}' already exists.";
+            $results['user'] = $user;
+            require( TEMPLATE_PATH . "/admin/editUser.php" );
+            return;
+        }
+        
+        $user->insert();
+        header( "Location: admin.php?action=listUsers&status=changesSaved" );
+
+    } elseif ( isset( $_POST['cancel'] ) ) {
+        // Пользователь сбросил результаты редактирования: возвращаемся к списку пользователей
+        header( "Location: admin.php?action=listUsers" );
+    } else {
+        // Пользователь еще не получил форму редактирования: выводим форму
+        $results['user'] = new User;
+        require( TEMPLATE_PATH . "/admin/editUser.php" );
+    }
+}
+
+function editUser() {
+    // Проверяем, что только admin может управлять пользователями
+    if ($_SESSION['username'] != ADMIN_USERNAME) {
+        header( "Location: admin.php?error=accessDenied" );
+        return;
+    }
+    
+    $results = array();
+    $results['pageTitle'] = "Edit User";
+    $results['formAction'] = "editUser";
+
+    if (isset($_POST['saveChanges'])) {
+        // Пользователь получил форму редактирования: сохраняем изменения
+        if ( !$user = User::getById( (int)$_POST['userId'] ) ) {
+            header( "Location: admin.php?action=listUsers&error=userNotFound" );
+            return;
+        }
+
+        // Проверяем, не существует ли уже пользователь с таким логином (если логин изменился)
+        $newLogin = $_POST['login'];
+        if ($newLogin != $user->login) {
+            $existingUser = User::getByLogin($newLogin);
+            if ($existingUser) {
+                $results['errorMessage'] = "User with login '{$newLogin}' already exists.";
+                $results['user'] = $user;
+                require(TEMPLATE_PATH . "/admin/editUser.php");
+                return;
+            }
+        }
+
+        // Сохраняем старый пароль, если новый не указан
+        $oldPassword = $user->password;
+        $user->storeFormValues( $_POST );
+        
+        // Если пароль не указан, оставляем старый
+        if (empty($_POST['password'])) {
+            $user->password = $oldPassword;
+        }
+        
+        $user->update();
+        header( "Location: admin.php?action=listUsers&status=changesSaved" );
+
+    } elseif ( isset( $_POST['cancel'] ) ) {
+        // Пользователь отказался от результатов редактирования: возвращаемся к списку пользователей
+        header( "Location: admin.php?action=listUsers" );
+    } else {
+        // Пользователь еще не получил форму редактирования: выводим форму
+        $results['user'] = User::getById((int)$_GET['userId']);
+        require(TEMPLATE_PATH . "/admin/editUser.php");
+    }
+}
+
+function deleteUser() {
+    // Проверяем, что только admin может управлять пользователями
+    if ($_SESSION['username'] != ADMIN_USERNAME) {
+        header( "Location: admin.php?error=accessDenied" );
+        return;
+    }
+    
+    if ( !$user = User::getById( (int)$_GET['userId'] ) ) {
+        header( "Location: admin.php?action=listUsers&error=userNotFound" );
+        return;
+    }
+
+    $user->delete();
+    header( "Location: admin.php?action=listUsers&status=userDeleted" );
 }
 
         

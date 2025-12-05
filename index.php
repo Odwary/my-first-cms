@@ -36,7 +36,8 @@ function archive()
     
     $results['category'] = Category::getById( $categoryId );
     
-    $data = Article::getList( 100000, $results['category'] ? $results['category']->id : null );
+    // Показываем только активные статьи на публичной странице
+    $data = Article::getList( 100000, $results['category'] ? $results['category']->id : null, "publicationDate DESC", true );
     
     $results['articles'] = $data['results'];
     $results['totalRows'] = $data['totalRows'];
@@ -74,6 +75,12 @@ function viewArticle()
         throw new Exception("Статья с id = $articleId не найдена");
     }
     
+    // Проверяем, активна ли статья (на публичной странице показываем только активные)
+    $isActive = isset($results['article']->isActive) ? (int)$results['article']->isActive : 1;
+    if ($isActive != 1) {
+        throw new Exception("Статья с id = $articleId не найдена");
+    }
+    
     $results['category'] = Category::getById($results['article']->categoryId);
     $results['pageTitle'] = $results['article']->title . " | Простая CMS";
     
@@ -86,7 +93,8 @@ function viewArticle()
 function homepage() 
 {
     $results = array();
-    $data = Article::getList(HOMEPAGE_NUM_ARTICLES);
+    // Показываем только активные статьи на главной странице
+    $data = Article::getList(HOMEPAGE_NUM_ARTICLES, null, "publicationDate DESC", true);
     $results['articles'] = $data['results'];
     $results['totalRows'] = $data['totalRows'];
     
