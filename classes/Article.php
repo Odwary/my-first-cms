@@ -290,12 +290,99 @@ class Article
       // Есть ли у объекта статьи ID?
       if ( is_null( $this->id ) ) trigger_error ( "Article::delete(): Attempt to delete an Article object that does not have its ID property set.", E_USER_ERROR );
 
-      // Удаляем статью
+      // Удаляем статью (связи с авторами удалятся автоматически благодаря CASCADE)
       $conn = new PDO( DB_DSN, DB_USERNAME, DB_PASSWORD );
       $st = $conn->prepare ( "DELETE FROM articles WHERE id = :id LIMIT 1" );
       $st->bindValue( ":id", $this->id, PDO::PARAM_INT );
       $st->execute();
       $conn = null;
+    }
+
+    /**
+    * Получить список авторов статьи
+    *
+    * @return Array Массив объектов User
+    */
+    public function getAuthors() {
+        if ( is_null( $this->id ) ) {
+            return array();
+        }
+
+        $conn = new PDO( DB_DSN, DB_USERNAME, DB_PASSWORD );
+        $sql = "SELECT u.* FROM users u 
+                INNER JOIN article_authors aa ON u.id = aa.userId 
+                WHERE aa.articleId = :articleId 
+                ORDER BY u.login ASC";
+        $st = $conn->prepare($sql);
+        $st->bindValue(":articleId", $this->id, PDO::PARAM_INT);
+        $st->execute();
+        
+        $authors = array();
+        while ($row = $st->fetch()) {
+            $authors[] = new User($row);
+        }
+        
+        $conn = null;
+        return $authors;
+    }
+
+    /**
+    * Установить авторов статьи (заменяет всех существующих авторов)
+    *
+    * @param array $userIds Массив ID пользователей
+    */
+    public function setAuthors($userIds) {
+        if ( is_null( $this->id ) ) {
+            trigger_error ( "Article::setAuthors(): Attempt to set authors for an Article object that does not have its ID property set.", E_USER_ERROR );
+            return;
+        }
+
+        $conn = new PDO( DB_DSN, DB_USERNAME, DB_PASSWORD );
+        
+        // Удаляем всех существующих авторов
+        $st = $conn->prepare("DELETE FROM article_authors WHERE articleId = :articleId");
+        $st->bindValue(":articleId", $this->id, PDO::PARAM_INT);
+        $st->execute();
+        
+        // Добавляем новых авторов
+        if (!empty($userIds) && is_array($userIds)) {
+            $st = $conn->prepare("INSERT INTO article_authors (articleId, userId) VALUES (:articleId, :userId)");
+            foreach ($userIds as $userId) {
+                $userId = (int) $userId;
+                if ($userId > 0) {
+                    $st->bindValue(":articleId", $this->id, PDO::PARAM_INT);
+                    $st->bindValue(":userId", $userId, PDO::PARAM_INT);
+                    $st->execute();
+                }
+            }
+        }
+        
+        $conn = null;
+    }
+
+    /**
+    * Получить массив ID авторов статьи
+    *
+    * @return Array Массив ID пользователей
+    */
+    public function getAuthorIds() {
+        if ( is_null( $this->id ) ) {
+            return array();
+        }
+
+        $conn = new PDO( DB_DSN, DB_USERNAME, DB_PASSWORD );
+        $sql = "SELECT userId FROM article_authors WHERE articleId = :articleId";
+        $st = $conn->prepare($sql);
+        $st->bindValue(":articleId", $this->id, PDO::PARAM_INT);
+        $st->execute();
+        
+        $authorIds = array();
+        while ($row = $st->fetch()) {
+            $authorIds[] = (int) $row['userId'];
+        }
+        
+        $conn = null;
+        return $authorIds;
     }
 
 }

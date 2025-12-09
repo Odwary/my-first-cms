@@ -82,6 +82,22 @@
                 <label for="isActive" style="display: inline; font-weight: normal;">Active (visible on site)</label>
               </li>
 
+              <li>
+                <label for="authorIds">Article Authors</label>
+                <select name="authorIds[]" id="authorIds" multiple size="5" style="min-height: 100px;">
+                <?php 
+                $selectedAuthorIds = isset($results['article']->id) ? $results['article']->getAuthorIds() : array();
+                if (isset($results['users'])) {
+                    foreach ( $results['users'] as $user ) { 
+                        $selected = in_array($user->id, $selectedAuthorIds) ? " selected" : "";
+                        echo '<option value="' . $user->id . '"' . $selected . '>' . htmlspecialchars( $user->login ) . '</option>';
+                    }
+                }
+                ?>
+                </select>
+                <small style="display: block; color: #666; margin-top: 5px;">Удерживайте Ctrl для выбора нескольких авторов</small>
+              </li>
+
 
             </ul>
 

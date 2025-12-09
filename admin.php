@@ -167,12 +167,22 @@ function newArticle() {
                     $results['subcategoriesByCategory'][$subcat->categoryId][] = $subcat;
                 }
                 
+                // Загружаем пользователей для формы
+                $usersData = User::getList();
+                $results['users'] = $usersData['results'];
+                
                 require( TEMPLATE_PATH . "/admin/editArticle.php" );
                 return;
             }
         }
         
         $article->insert();
+        
+        // Сохраняем авторов статьи
+        if (isset($_POST['authorIds']) && is_array($_POST['authorIds'])) {
+            $article->setAuthors($_POST['authorIds']);
+        }
+        
         header( "Location: admin.php?status=changesSaved" );
 
     } elseif ( isset( $_POST['cancel'] ) ) {
@@ -195,6 +205,10 @@ function newArticle() {
             }
             $results['subcategoriesByCategory'][$subcat->categoryId][] = $subcat;
         }
+        
+        // Загружаем пользователей для формы
+        $usersData = User::getList();
+        $results['users'] = $usersData['results'];
         
         require( TEMPLATE_PATH . "/admin/editArticle.php" );
     }
@@ -246,12 +260,25 @@ function editArticle() {
                     $results['subcategoriesByCategory'][$subcat->categoryId][] = $subcat;
                 }
                 
+                // Загружаем пользователей для формы
+                $usersData = User::getList();
+                $results['users'] = $usersData['results'];
+                
                 require(TEMPLATE_PATH . "/admin/editArticle.php");
                 return;
             }
         }
         
         $article->update();
+        
+        // Сохраняем авторов статьи
+        if (isset($_POST['authorIds']) && is_array($_POST['authorIds'])) {
+            $article->setAuthors($_POST['authorIds']);
+        } else {
+            // Если авторы не выбраны, удаляем всех авторов
+            $article->setAuthors(array());
+        }
+        
         header( "Location: admin.php?status=changesSaved" );
 
     } elseif ( isset( $_POST['cancel'] ) ) {
@@ -274,6 +301,10 @@ function editArticle() {
             }
             $results['subcategoriesByCategory'][$subcat->categoryId][] = $subcat;
         }
+        
+        // Загружаем пользователей для формы
+        $usersData = User::getList();
+        $results['users'] = $usersData['results'];
         
         require(TEMPLATE_PATH . "/admin/editArticle.php");
     }
